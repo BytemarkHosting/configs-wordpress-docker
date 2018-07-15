@@ -1,22 +1,20 @@
 version: '3'
 # See https://docs.docker.com/compose/overview/ for more information.
 
-# If you change this file or any others in /root/compose, apply those
-# changes by logging into your server and running this as root:
-#   cd /root/compose; docker-compose down; docker-compose up -d
+# If you make changes to this file or any related files, apply them by
+# navigating to the directory that holds this file and run this as root:
+#   docker-compose down; docker-compose up -d
 
 # Create two networks: one for front-end containers that we'll make
-# publicly accessible to the internet (eg, WordPress), and one for
-# back-end containers.
+# publicly accessible to the internet, and one for private back-end.
 networks:
   frontend:
   backend:
 
-# Create two persistent Docker volumes to preserve important data.
-# We don't want our database to disappear when Docker (or our
-# containers) restart.
+# Create persistent Docker volumes to preserve important data.
+# We don't want our data to be lost when restarting containers.
 volumes:
-  vol-db:
+  vol-wp-db:
   vol-wp-content:
 
 # Create our containers.
@@ -44,20 +42,19 @@ services:
     labels:
       - "traefik.docker.network=frontend"
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${BASE_DOMAIN}; PathPrefixStrip:/traefik"
+      - "traefik.frontend.rule=Host:${TRAEFIK_DOMAINS}; PathPrefixStrip:/traefik"
       - "traefik.port=8080"
       - "traefik.protocol=http"
-      # Remove the next line if you don't want a browser login prompt.
+      # Remove next line to disable login prompt for the dashboard.
       - "traefik.frontend.auth.basic=${BASIC_AUTH}"
 
-  # Watchtower detects if a base image has changed for any of your
-  # containers, then if needed it automatically updates and restarts
-  # the container.
+  # Watchtower detects if any linked containers have an new image
+  # available, automatically updating & restarting them if needed.
   watchtower:
     # https://hub.docker.com/r/centurylink/watchtower/
     image: v2tec/watchtower:latest
     # https://github.com/v2tec/watchtower#options
-    # This schedule checks for updates every day at midnight.
+    # This schedule applies updates (if available) at midnight.
     command: --cleanup --schedule "0 0 0 * * *"
     restart: always
     networks:
@@ -65,7 +62,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-  db:
+  wp-db:
     # https://hub.docker.com/_/mariadb/
     # Specify 10.3 as we only want watchtower to apply minor updates
     # (eg, 10.3.1) and not major updates (eg, 10.4).
@@ -75,20 +72,20 @@ services:
       - backend
     volumes:
       # Ensure the database persists between restarts.
-      - vol-db:/var/lib/mysql
+      - vol-wp-db:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${WORDPRESS_DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${WORDPRESS_DB_NAME}
       MYSQL_USER: ${WORDPRESS_DB_USER}
       MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD}
 
   # The main front-end application.
-  wordpress:
+  wp:
     # https://hub.docker.com/_/wordpress/
     # Replace "latest" with "4.9" to stick to a specific version.
     image: wordpress:latest
     depends_on:
-      - db
+      - wp-db
     restart: always
     networks:
       - backend
@@ -101,25 +98,25 @@ services:
       # Install our own php.ini, which can be customized.
       - ./php.ini:/usr/local/etc/php/php.ini
     environment:
-      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_HOST: wp-db:3306
       WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
       WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
       WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
     labels:
       - "traefik.docker.network=frontend"
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${BASE_DOMAIN}"
+      - "traefik.frontend.rule=Host:${WORDPRESS_DOMAINS}"
       - "traefik.port=80"
       - "traefik.protocol=http"
 
   # Navigate to http://example.com/phpmyadmin/ to manage your MySQL
   # databases. (Don't forget the last forward slash.) Like the Traefik
   # dashboard, this is behind a login prompt to help you stay secure.
-  phpmyadmin:
+  wp-phpmyadmin:
     # https://hub.docker.com/r/phpmyadmin/phpmyadmin/
     image: phpmyadmin/phpmyadmin:latest
     depends_on:
-      - db
+      - wp-db
     restart: always
     networks:
       - backend
@@ -130,13 +127,13 @@ services:
       # Install our own php.ini, which can be customized.
       - ./php.ini:/usr/local/etc/php/php.ini
     environment:
-      PMA_HOST: db
+      PMA_HOST: wp-db
       PMA_ABSOLUTE_URI: /phpmyadmin/
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${WORDPRESS_DB_ROOT_PASSWORD}
     labels:
       - "traefik.docker.network=frontend"
       - "traefik.enable=true"
-      - "traefik.frontend.rule=Host:${BASE_DOMAIN}; PathPrefixStrip:/phpmyadmin/"
+      - "traefik.frontend.rule=Host:${WORDPRESS_DOMAINS}; PathPrefixStrip:/phpmyadmin/"
       - "traefik.port=80"
       - "traefik.protocol=http"
       # Remove the next line if you don't want a browser login prompt.
