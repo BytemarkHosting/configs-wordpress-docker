@@ -38,9 +38,9 @@ services:
       - ./traefik.toml:/traefik.toml              # Traefik configuration
       - ./acme.json:/acme.json                    # SSL certificates
     ports:
+      # Map port 80 and 443 on the host to this container.
       - "80:80"
       - "443:443"
-      - "8080:8080"
     labels:
       - "traefik.docker.network=frontend"
       - "traefik.enable=true"
