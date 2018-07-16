@@ -30,3 +30,6 @@ entryPoint = "https"
   [acme.httpChallenge]
   entryPoint = "http"
 
+# https://docs.traefik.io/configuration/logs/
+# Comment out the next line to enable Traefik's access logs.
+# [accessLog]
