@@ -108,7 +108,7 @@ services:
       - "traefik.frontend.rule=Host:${WORDPRESS_DOMAINS}"
       - "traefik.port=80"
       - "traefik.protocol=http"
-      # Uncomment this line to enable HSTS header.
+      # Uncomment the following line to enable HSTS header.
       #- "traefik.frontend.headers.STSSeconds=15768000"
 
   # Navigate to http://example.com/phpmyadmin/ to manage your MySQL
