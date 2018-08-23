@@ -56,10 +56,11 @@ services:
     # This schedule applies updates (if available) at midnight.
     command: --cleanup --schedule "0 0 0 * * *"
     restart: always
-    networks:
-      - backend
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=false"
+
 
   wp-db:
     # https://hub.docker.com/_/mariadb/
@@ -77,6 +78,8 @@ services:
       MYSQL_DATABASE: ${WORDPRESS_DB_NAME}
       MYSQL_USER: ${WORDPRESS_DB_USER}
       MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+    labels:
+      - "traefik.enable=false"
 
   # The main front-end application.
   wp:
@@ -89,8 +92,6 @@ services:
     networks:
       - backend
       - frontend
-    expose:
-      - "80"
     volumes:
       # Ensure WP themes/plugins/uploads persist between restarts.
       - vol-wp-content:/var/www/html/wp-content
@@ -120,8 +121,6 @@ services:
     networks:
       - backend
       - frontend
-    expose:
-      - "80"
     volumes:
       # Install our own php.ini, which can be customized.
       - ./php.ini:/usr/local/etc/php/php.ini
@@ -146,4 +145,6 @@ services:
     restart: always
     networks:
       - frontend
+    labels:
+      - "traefik.enable=false"
 
